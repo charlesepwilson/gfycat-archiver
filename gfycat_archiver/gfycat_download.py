@@ -1,3 +1,5 @@
+import json
+import os.path
 from pathlib import Path
 
 import httpx
@@ -42,12 +44,17 @@ class GfyCatClient(httpx.Client):
 
     def save(self, url: str):
         gfy_id = url.split("/")[-1]
-        metadata_url = f"https://api.gfycat.com/v1/gfycats/{gfy_id}"
-        metadata_response = self.get(metadata_url)
         json_file = f"{gfy_id}.json"
-        with open(self.save_directory / json_file, "w") as f:
-            f.write(metadata_response.text)
-        metadata = metadata_response.json()
+        if not os.path.isfile(self.save_directory / json_file):
+            print(f"getting metadata {json_file}")
+            metadata_url = f"https://api.gfycat.com/v1/gfycats/{gfy_id}"
+            metadata_response = self.get(metadata_url)
+            with open(self.save_directory / json_file, "w") as f:
+                f.write(metadata_response.text)
+            metadata = metadata_response.json()
+        else:
+            with open(self.save_directory / json_file, "r") as f:
+                metadata = json.load(f)
         mp4_url = metadata["gfyItem"]["mp4Url"]
         self.save_video(gfy_id, mp4_url, "mp4")
         webm_url = metadata["gfyItem"]["webmUrl"]
@@ -55,14 +62,23 @@ class GfyCatClient(httpx.Client):
 
     def save_video(self, gfy_id: str,  url: str, file_format: str):
         file = f"{gfy_id}.{file_format}"
-        with open(self.save_directory / file, "wb") as f:
-            with httpx.stream('GET', url) as r:
-                for chunk in r.iter_bytes():
-                    f.write(chunk)
+        if not os.path.isfile(self.save_directory / file):
+            print(f"getting video {file}")
+            with open(self.save_directory / file, "wb") as f:
+                with httpx.stream('GET', url) as r:
+                    for chunk in r.iter_bytes():
+                        f.write(chunk)
+
+    def save_batch(self, *urls: str):
+        for url in urls:
+            self.save(url.replace("\n", ""))
 
 
 if __name__ == "__main__":
     s = settings.Settings()
-    GfyCatClient(s.gfycat_client_id, s.gfycat_secret, s.save_directory).save(
-        "https://gfycat.com/discretetinyadeliepenguin",
-    )
+    client = GfyCatClient(s.gfycat_client_id, s.gfycat_secret, s.save_directory)
+    with open("links.txt") as f:
+        links = f.readlines()
+        client.save_batch(
+            *links,
+        )

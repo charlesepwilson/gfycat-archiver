@@ -8,4 +8,5 @@ class Settings(BaseSettings):
     gfycat_secret: str
     gfycat_client_id: str
     save_directory: Path
-    model_config = SettingsConfigDict(env_file=find_dotenv(usecwd=True))
+    discord_token: str
+    model_config = SettingsConfigDict(env_file=find_dotenv(usecwd=True), extra="ignore")
