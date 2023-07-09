@@ -1,3 +1,4 @@
 httpx
 pydantic-settings
 python-dotenv
+discord.py

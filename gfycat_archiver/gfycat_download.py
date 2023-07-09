@@ -1,10 +1,11 @@
 import json
+import logging
 import os.path
 from pathlib import Path
 
 import httpx
 
-from gfycat_archiver import settings
+logger = logging.getLogger(__name__)
 
 
 class GfyCatAuth(httpx.Auth):
@@ -34,19 +35,26 @@ class GfyCatAuth(httpx.Auth):
             yield request
 
 
+def get_gfy_id(url: str) -> str:
+    return url.split("/")[-1]
+
+
 class GfyCatClient(httpx.Client):
-    def __init__(self, client_id: str, client_secret: str, save_directory: Path, *args, **kwargs):
+    def __init__(
+        self, client_id: str, client_secret: str, save_directory: Path, *args, **kwargs
+    ):
         self.save_directory = save_directory
-        super().__init__(
-            auth=GfyCatAuth(client_id, client_secret),
-            *args, **kwargs
-        )
+        super().__init__(*args, auth=GfyCatAuth(client_id, client_secret), **kwargs)
+
+    def request(self, *args, **kwargs) -> httpx.Response:
+        response = super().request(*args, **kwargs)
+        response.raise_for_status()
+        return response
 
     def save(self, url: str):
-        gfy_id = url.split("/")[-1]
+        gfy_id = get_gfy_id(url)
         json_file = f"{gfy_id}.json"
         if not os.path.isfile(self.save_directory / json_file):
-            print(f"getting metadata {json_file}")
             metadata_url = f"https://api.gfycat.com/v1/gfycats/{gfy_id}"
             metadata_response = self.get(metadata_url)
             with open(self.save_directory / json_file, "w") as f:
@@ -60,25 +68,17 @@ class GfyCatClient(httpx.Client):
         webm_url = metadata["gfyItem"]["webmUrl"]
         self.save_video(gfy_id, webm_url, "webm")
 
-    def save_video(self, gfy_id: str,  url: str, file_format: str):
+    def save_video(self, gfy_id: str, url: str, file_format: str):
         file = f"{gfy_id}.{file_format}"
         if not os.path.isfile(self.save_directory / file):
-            print(f"getting video {file}")
             with open(self.save_directory / file, "wb") as f:
-                with httpx.stream('GET', url) as r:
+                with httpx.stream("GET", url) as r:
                     for chunk in r.iter_bytes():
                         f.write(chunk)
 
     def save_batch(self, *urls: str):
         for url in urls:
-            self.save(url.replace("\n", ""))
-
-
-if __name__ == "__main__":
-    s = settings.Settings()
-    client = GfyCatClient(s.gfycat_client_id, s.gfycat_secret, s.save_directory)
-    with open("links.txt") as f:
-        links = f.readlines()
-        client.save_batch(
-            *links,
-        )
+            try:
+                self.save(url.replace("\n", ""))
+            except httpx.HTTPStatusError:
+                logger.info(f"Failed to archive {url}")
