@@ -36,7 +36,7 @@ class GfyCatAuth(httpx.Auth):
 
 
 def get_gfy_id(url: str) -> str:
-    return url.split("/")[-1]
+    return url.strip("/").split("/")[-1]
 
 
 class GfyCatClient(httpx.Client):

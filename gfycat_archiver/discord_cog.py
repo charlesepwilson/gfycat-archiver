@@ -34,20 +34,33 @@ class GfyCatCog(commands.Cog):
         )
         self.bot.tree.add_command(self.archived_gfycat_public)
 
-    @commands.command(name="sync")
-    async def sync(self, ctx: commands.Context):
+    @app_commands.command(name="sync")
+    @app_commands.describe(
+        global_sync="Whether to sync globally or only in this server"
+    )
+    @app_commands.default_permissions(manage_guild=True)
+    async def sync(self, interaction: Interaction, global_sync: bool):
         """Syncs slash commands with discord."""
-        # This copies the global commands over to your guild.
-        guild = ctx.guild
-        if guild is not None:
-            self.bot.tree.copy_global_to(guild=guild)
-            synced_cmds = await self.bot.tree.sync(guild=guild)
-            logger.info(f"{synced_cmds = }")
-            await ctx.send(f"Synced commands: {synced_cmds}")
+        if global_sync:
+            synced_cmds = await self.bot.tree.sync()
         else:
-            await ctx.send(
-                "Failed to identify guild. This shouldn't ever happen really.",
-            )
+            # This copies the global commands over to your guild.
+            guild = interaction.guild
+            if guild is not None:
+                self.bot.tree.copy_global_to(guild=guild)
+                synced_cmds = await self.bot.tree.sync(guild=guild)
+
+            else:
+                await interaction.response.send_message(
+                    "Failed to identify guild. This shouldn't ever happen really.",
+                    ephemeral=True,
+                )
+                return
+        logger.info(f"{synced_cmds = }")
+        await interaction.response.send_message(
+            f"Synced commands: {synced_cmds}",
+            ephemeral=True,
+        )
 
     @app_commands.command(
         name="archive_channel",
