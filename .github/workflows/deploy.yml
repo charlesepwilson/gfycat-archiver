@@ -39,4 +39,5 @@ jobs:
           --container-env=SENTRY_DSN=${{secrets.SENTRY_DSN}}
           --container-env=ARCHIVE_MODE=cloud
           --container-env=CLOUD_BUCKET_NAME=${{vars.CLOUD_BUCKET_NAME}}
+          --container-env=CLOUD_PROJECT_ID=${{secrets.CLOUD_PROJECT_ID}}
           --container-env=ENVIRONMENT=${{vars.ENVIRONMENT}}
