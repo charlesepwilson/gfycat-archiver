@@ -1,9 +1,10 @@
 name: Deploy
 
 on:
-  release:
-    types:
-      - created
+  push
+#  release:
+#    types:
+#      - created
 
 jobs:
   publish:
@@ -18,7 +19,7 @@ jobs:
         name: 'Authenticate to Google Cloud'
         uses: 'google-github-actions/auth@v1'
         with:
-          create_credentials_file: true
+          create_credentials_file: false
           workload_identity_provider: projects/${{ secrets.GOOGLE_PROJECT_NUMBER }}/locations/global/workloadIdentityPools/github/providers/github
           service_account: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_EMAIL }}
 
@@ -30,7 +31,8 @@ jobs:
       - name: Update image
         run: >
           gcloud compute instances update-container discord
-          --container-image=${{ github.repository }}:latest
+          --zone=${{secrets.GOOGLE_CLOUD_ZONE}}
+          --container-image=ghcr.io/${{ github.repository }}:latest
           --container-env=GFYCAT_CLIENT_SECRET=${{secrets.GFYCAT_CLIENT_SECRET}}
           --container-env=GFYCAT_CLIENT_ID=${{secrets.GFYCAT_CLIENT_ID}}
           --container-env=DISCORD_TOKEN=${{secrets.DISCORD_TOKEN}}
