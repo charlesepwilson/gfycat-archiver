@@ -1,11 +1,10 @@
 import logging
-import os
 import re
-from pathlib import Path
 
-from discord import File, Interaction, Message, TextChannel, app_commands
+from discord import Interaction, Message, TextChannel, app_commands
 from discord.ext import commands
 
+from gfycat_archiver.archiver import Archiver
 from gfycat_archiver.gfycat_download import GfyCatClient, get_gfy_id
 
 logger = logging.getLogger(__name__)
@@ -17,12 +16,12 @@ class GfyCatCog(commands.Cog):
         bot: commands.Bot,
         client_id: str,
         client_secret: str,
-        save_directory: Path,
+        archiver: Archiver,
     ) -> None:
         self.bot = bot
         self.client_id = client_id
         self.client_secret = client_secret
-        self.save_directory = save_directory
+        self.archiver = archiver
         self.archived_gfycat = app_commands.ContextMenu(
             name="View archived gfycat",
             callback=self.get_file_private,
@@ -67,12 +66,17 @@ class GfyCatCog(commands.Cog):
         description="Archives all gfycat links in the current channel",
     )
     async def archive_channel(self, interaction: Interaction):
+        # todo record what's already been archived
+        # todo archive individual message
+        # todo version command
+        # todo consider custom plugin for cached_slot_property recognition
+        #  https://github.com/kflu/pyprop3/blob/master/pyprop3.iml
         await interaction.response.defer(ephemeral=True, thinking=True)
+        assert isinstance(interaction.channel, TextChannel)
         gfycat_links = await get_gfycat_links(interaction.channel)
-        with GfyCatClient(
-            self.client_id, self.client_secret, self.save_directory
-        ) as client:
+        with GfyCatClient(self.client_id, self.client_secret, self.archiver) as client:
             client.save_batch(*gfycat_links)
+        assert isinstance(interaction.channel, TextChannel)
         await interaction.followup.send(
             f"Successfully archived gfycats in {interaction.channel.name}"
         )
@@ -83,9 +87,8 @@ class GfyCatCog(commands.Cog):
     )
     async def archive_server(self, interaction: Interaction):
         await interaction.response.defer(ephemeral=True, thinking=True)
-        with GfyCatClient(
-            self.client_id, self.client_secret, self.save_directory
-        ) as client:
+        with GfyCatClient(self.client_id, self.client_secret, self.archiver) as client:
+            assert interaction.guild is not None
             for channel in interaction.guild.text_channels:
                 gfycat_links = await get_gfycat_links(channel)
                 client.save_batch(*gfycat_links)
@@ -105,17 +108,16 @@ class GfyCatCog(commands.Cog):
         gfy_id = get_gfy_id(list(links)[0])
         json_file = f"{gfy_id}.json"
         webm_file = f"{gfy_id}.webm"
-        json_exists = os.path.isfile(self.save_directory / json_file)
-        webm_exists = os.path.isfile(self.save_directory / webm_file)
+        json_exists = self.archiver.file_exists(json_file)
+        webm_exists = self.archiver.file_exists(webm_file)
         if (not json_exists) or (not webm_exists):
             await interaction.response.send_message(
                 "This gfycat has not been archived", ephemeral=ephemeral
             )
             return
         await interaction.response.defer(ephemeral=ephemeral, thinking=True)
-        metadata = File(self.save_directory / json_file)
-        video = File(self.save_directory / webm_file)
-        await interaction.followup.send(files=[metadata, video], ephemeral=ephemeral)
+        files = self.archiver.attach_files(gfy_id)
+        await interaction.followup.send(**files, ephemeral=ephemeral)
 
     async def get_file_private(self, interaction: Interaction, message: Message):
         return await self._get_file(interaction, message, True)
@@ -128,9 +130,9 @@ async def setup(
     bot: commands.Bot,
     client_id: str,
     client_secret: str,
-    save_directory: Path,
+    archiver: Archiver,
 ) -> None:
-    await bot.add_cog(GfyCatCog(bot, client_id, client_secret, save_directory))
+    await bot.add_cog(GfyCatCog(bot, client_id, client_secret, archiver))
 
 
 def extract_gfycat_links(text: str) -> set[str]:

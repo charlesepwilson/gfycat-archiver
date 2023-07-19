@@ -1,9 +1,9 @@
 import json
 import logging
-import os.path
-from pathlib import Path
 
 import httpx
+
+from gfycat_archiver.archiver import Archiver
 
 logger = logging.getLogger(__name__)
 
@@ -41,9 +41,9 @@ def get_gfy_id(url: str) -> str:
 
 class GfyCatClient(httpx.Client):
     def __init__(
-        self, client_id: str, client_secret: str, save_directory: Path, *args, **kwargs
+        self, client_id: str, client_secret: str, archiver: Archiver, *args, **kwargs
     ):
-        self.save_directory = save_directory
+        self.archiver = archiver
         super().__init__(*args, auth=GfyCatAuth(client_id, client_secret), **kwargs)
 
     def request(self, *args, **kwargs) -> httpx.Response:
@@ -54,14 +54,14 @@ class GfyCatClient(httpx.Client):
     def save(self, url: str):
         gfy_id = get_gfy_id(url)
         json_file = f"{gfy_id}.json"
-        if not os.path.isfile(self.save_directory / json_file):
+        if not self.archiver.file_exists(json_file):
             metadata_url = f"https://api.gfycat.com/v1/gfycats/{gfy_id}"
             metadata_response = self.get(metadata_url)
-            with open(self.save_directory / json_file, "w") as f:
+            with self.archiver.writer(json_file) as f:
                 f.write(metadata_response.text)
             metadata = metadata_response.json()
         else:
-            with open(self.save_directory / json_file, "r") as f:
+            with self.archiver.reader(json_file) as f:
                 metadata = json.load(f)
         mp4_url = metadata["gfyItem"]["mp4Url"]
         self.save_video(gfy_id, mp4_url, "mp4")
@@ -70,8 +70,8 @@ class GfyCatClient(httpx.Client):
 
     def save_video(self, gfy_id: str, url: str, file_format: str):
         file = f"{gfy_id}.{file_format}"
-        if not os.path.isfile(self.save_directory / file):
-            with open(self.save_directory / file, "wb") as f:
+        if not self.archiver.file_exists(f"{gfy_id}.{file_format}"):
+            with self.archiver.writer(file, "wb") as f:
                 with httpx.stream("GET", url) as r:
                     for chunk in r.iter_bytes():
                         f.write(chunk)

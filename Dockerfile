@@ -1,0 +1,9 @@
+FROM python:${PYTHON_VERSION}-slim
+
+COPY requirements.txt .
+
+RUN pip install --no-cache-dir --upgrade -r requirements.txt -r requirements-google.txt
+
+COPY . .
+
+CMD python3 -m gfycat_archiver

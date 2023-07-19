@@ -2,3 +2,4 @@ httpx
 pydantic-settings
 python-dotenv
 discord.py
+sentry-sdk

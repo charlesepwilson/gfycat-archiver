@@ -21,6 +21,7 @@ dependencies = {file = ["requirements.txt"]}
 
 [tool.setuptools.dynamic.optional-dependencies]
 dev = {file = ["requirements-dev.txt"]}
+google-cloud = {file = ["requirements-google.txt"]}
 
 [tool.setuptools_scm]
 
