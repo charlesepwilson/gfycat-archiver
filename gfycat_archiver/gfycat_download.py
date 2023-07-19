@@ -57,8 +57,8 @@ class GfyCatClient(httpx.Client):
         if not self.archiver.file_exists(json_file):
             metadata_url = f"https://api.gfycat.com/v1/gfycats/{gfy_id}"
             metadata_response = self.get(metadata_url)
-            with self.archiver.writer(json_file) as f:
-                f.write(metadata_response.text)
+            with self.archiver.writer(json_file, "wb") as f:
+                f.write(metadata_response.content)
             metadata = metadata_response.json()
         else:
             with self.archiver.reader(json_file) as f:
