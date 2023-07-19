@@ -48,8 +48,8 @@ class LocalArchiver(Archiver):
 
 
 try:
-    from google.cloud import storage
-    from google.cloud.storage.blob import BlobReader, BlobWriter
+    from google.cloud import storage  # type: ignore
+    from google.cloud.storage.blob import BlobReader, BlobWriter  # type: ignore
 
     class GoogleCloudArchiver(Archiver):
         def __init__(self, project_id: str, bucket: str):
