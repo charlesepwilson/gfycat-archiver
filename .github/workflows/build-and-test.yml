@@ -19,7 +19,7 @@ jobs:
       env:
         gfycat_client_secret: ${{ secrets.gfycat_client_secret }}
         gfycat_client_id: ${{ secrets.gfycat_client_id }}
-        save_directory: "/""
+        save_directory: "/"
         discord_token: ${{ secrets.discord_token }}
 
     steps:
